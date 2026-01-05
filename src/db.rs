@@ -1,11 +1,19 @@
+use std::path::PathBuf;
+
 use anyhow::{Context, Result};
 use polodb_core::bson::{doc, oid::ObjectId};
 use polodb_core::{Collection, CollectionT, Database};
 
 use crate::models::Todo;
 
-const DB_PATH: &str = "todo.polo.db";
 const COLLECTION_NAME: &str = "todos";
+
+fn db_path() -> Result<PathBuf> {
+    let home = std::env::var("HOME").context("HOME environment variable not set")?;
+    let data_dir = PathBuf::from(home).join(".local/share/todo");
+    std::fs::create_dir_all(&data_dir).context("failed to create data directory")?;
+    Ok(data_dir.join("todo.db"))
+}
 
 pub struct TodoDb {
     db: Database,
@@ -13,7 +21,8 @@ pub struct TodoDb {
 
 impl TodoDb {
     pub fn open() -> Result<Self> {
-        let db = Database::open_path(DB_PATH).context("failed to open database")?;
+        let path = db_path()?;
+        let db = Database::open_path(&path).context("failed to open database")?;
         Ok(Self { db })
     }
 
