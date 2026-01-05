@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use polodb_core::bson::{doc, oid::ObjectId};
+use polodb_core::bson::{doc, oid::ObjectId, DateTime as BsonDateTime};
 use polodb_core::{Collection, CollectionT, Database};
 
 use crate::models::Todo;
@@ -104,5 +104,51 @@ impl TodoDb {
             .delete_one(doc! { "_id": id })
             .context("failed to delete todo")?;
         Ok(res.deleted_count > 0)
+    }
+
+    pub fn set_reminder(&self, id: &ObjectId, remind_at: Option<BsonDateTime>) -> Result<bool> {
+        let res = self
+            .collection()
+            .update_one(
+                doc! { "_id": id },
+                doc! { "$set": { "remind_at": remind_at, "notified": false } },
+            )
+            .context("failed to set reminder")?;
+        Ok(res.matched_count > 0)
+    }
+
+    pub fn get_due_reminders(&self) -> Result<Vec<Todo>> {
+        let now = BsonDateTime::now();
+        let todos = self.list_all()?;
+
+        Ok(todos
+            .into_iter()
+            .filter(|t| {
+                !t.done
+                    && !t.notified
+                    && t.remind_at
+                        .map(|r| r.timestamp_millis() <= now.timestamp_millis())
+                        .unwrap_or(false)
+            })
+            .collect())
+    }
+
+    pub fn mark_notified(&self, id: &ObjectId) -> Result<bool> {
+        let res = self
+            .collection()
+            .update_one(doc! { "_id": id }, doc! { "$set": { "notified": true } })
+            .context("failed to mark notified")?;
+        Ok(res.matched_count > 0)
+    }
+
+    pub fn clear_reminder(&self, id: &ObjectId) -> Result<bool> {
+        let res = self
+            .collection()
+            .update_one(
+                doc! { "_id": id },
+                doc! { "$set": { "remind_at": null, "notified": false } },
+            )
+            .context("failed to clear reminder")?;
+        Ok(res.matched_count > 0)
     }
 }

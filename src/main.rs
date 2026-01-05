@@ -2,13 +2,17 @@ mod commands;
 mod db;
 mod display;
 mod models;
+mod remind;
 
 use std::env;
 
 use anyhow::Result;
 use colored::Colorize;
 
-use commands::{cmd_add, cmd_clear, cmd_done, cmd_edit, cmd_list, cmd_remove, cmd_undone};
+use commands::{
+    cmd_add, cmd_clear, cmd_done, cmd_edit, cmd_list, cmd_notify, cmd_remind, cmd_remove,
+    cmd_undone,
+};
 use db::TodoDb;
 use display::{print_error, print_usage};
 
@@ -21,8 +25,13 @@ fn run() -> Result<()> {
         return Ok(());
     }
 
+    let cmd_args: Vec<String> = if args.len() > 1 {
+        args.drain(1..).collect()
+    } else {
+        vec![]
+    };
+
     let db = TodoDb::open()?;
-    let cmd_args: Vec<String> = if args.len() > 1 { args.drain(1..).collect() } else { vec![] };
 
     match cmd.as_str() {
         "add" | "a" => cmd_add(&db, cmd_args),
@@ -30,8 +39,10 @@ fn run() -> Result<()> {
         "done" | "d" => cmd_done(&db, cmd_args),
         "undone" | "u" => cmd_undone(&db, cmd_args),
         "edit" | "e" => cmd_edit(&db, cmd_args),
+        "remind" => cmd_remind(&db, cmd_args),
         "rm" | "remove" | "r" => cmd_remove(&db, cmd_args),
         "clear" => cmd_clear(&db),
+        "notify" => cmd_notify(&db),
         unknown => {
             print_error(&format!("Unknown command: {}", unknown));
             println!("Run {} for usage information", "todo help".cyan());
